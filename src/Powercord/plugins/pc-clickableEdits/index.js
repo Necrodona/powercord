@@ -11,6 +11,7 @@ module.exports = class ClickableEdits extends Plugin {
 
     this.classes = {
       messages: getModule([ 'messages', 'scroller' ], false),
+      messageContent: getModule([ 'wrapper', 'username' ], false),
       container: getModule([ 'container', 'embedWrapper' ], false),
       markup: getModule([ 'markup' ], false)
     };
@@ -44,7 +45,7 @@ module.exports = class ClickableEdits extends Plugin {
     const renderMessage = (args, res) => {
       const { childrenMessageContent: { props: { message } } } = args[0];
       if (message && message.author.id === this.currentUser.id) {
-        res.props.onMouseUp = this.handleMessageEdit(message.channel_id, message.id, message.content);
+        res.props.children.props.onMouseUp = this.handleMessageEdit(message.channel_id, message.id, message.content);
       }
 
       return res;
@@ -52,7 +53,6 @@ module.exports = class ClickableEdits extends Plugin {
 
     const Message = await getModule(m => m.default && m.default.displayName === 'Message');
     inject('clickableEdits-message', Message, 'default', renderMessage);
-
     Message.default.displayName = 'Message';
 
     forceUpdateElement(this.classes.messages);
@@ -72,7 +72,7 @@ module.exports = class ClickableEdits extends Plugin {
 
     return (e) => {
       if (get('dualControlEdits') ? dualControl(e) : get('useShiftKey') ? shiftKey(e) : doubleClick(e)) {
-        if (e.target.closest(this.classes.markup) || e.target.closest(this.classes.container)) {
+        if (e.target.closest(`${this.classes.markup}${this.classes.messageContent}`) || e.target.closest(this.classes.container)) {
           messages.startEditMessage(...args);
         }
       }
