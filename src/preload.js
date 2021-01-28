@@ -6,12 +6,132 @@
 
 require('../polyfills');
 
-const { ipcRenderer, contextBridge } = require('electron');
+const { ipcRenderer, webFrame } = require('electron');
 const { join } = require('path');
 const { existsSync, mkdirSync, open, write } = require('fs');
 const { LOGS_FOLDER } = require('./fake_node_modules/powercord/constants');
-contextBridge.exposeInMainWorld = () => void 0; // Prevent Discord from using this
 require('./ipc/renderer');
+
+// --
+// Begin some catastrophically stupid shit to make Powercord survive with context isolation
+// --
+
+class BetterResizeObserver extends ResizeObserver {
+  constructor (fn) {
+    super((...args) => fn(...args));
+  }
+}
+
+class BetterMutationObserver extends MutationObserver {
+  constructor (fn) {
+    super((...args) => fn(...args));
+  }
+}
+
+window.ResizeObserver = BetterResizeObserver;
+window.MutationObserver = BetterMutationObserver;
+
+function rebindAllEventTargets () {
+  function rebindEventTarget (target) {
+    const realAddEventListener = target.addEventListener;
+    const realRemoveEventListener = target.removeEventListener;
+
+    target.addEventListener = function (type, fn, ...args) {
+      this.__listener__fnStore = this.__listener__fnStore || new WeakMap();
+      function listener (...args) {
+        fn.apply(this, args);
+      }
+
+      this.__listener__fnStore.set(fn, listener);
+      realAddEventListener.call(this, type, listener, ...args);
+    };
+
+    target.removeEventListener = function (type, fn, ...args) {
+      this.__listener__fnStore = this.__listener__fnStore || new WeakMap();
+      const listener = this.__listener__fnStore.get(fn);
+
+      realRemoveEventListener.call(this, type, listener, ...args);
+      this.__listener__fnStore.delete(fn);
+    };
+  }
+
+  rebindEventTarget(window);
+  rebindEventTarget(document);
+  rebindEventTarget(Element.prototype);
+}
+
+rebindAllEventTargets();
+webFrame.executeJavaScript(`(${rebindAllEventTargets.toString().replace('rebindAllEventTargets', '')}())`);
+
+Object.defineProperty(window, 'webpackJsonp', {
+  get: () => webFrame.top.context.window.webpackJsonp
+});
+
+Object.defineProperty(window, 'GLOBAL_ENV', {
+  get: () => webFrame.top.context.window.GLOBAL_ENV
+});
+
+Object.defineProperty(window, 'DiscordSentry', {
+  get: () => webFrame.top.context.window.DiscordSentry
+});
+
+Object.defineProperty(window, '__SENTRY__', {
+  get: () => webFrame.top.context.window.__SENTRY__
+});
+
+Object.defineProperty(window, '_', {
+  get: () => webFrame.top.context.window._
+});
+
+Object.defineProperty(window, 'platform', {
+  get: () => webFrame.top.context.window.platform
+});
+
+const realQuerySelector = document.querySelector.bind(document);
+const realQuerySelectorAll = document.querySelectorAll.bind(document);
+
+let pointer = 0;
+function fetchInternal () {
+  this.dataset.powercordReactInstancePointer = ++pointer;
+  const realNode = webFrame.top.context.document.querySelector(`[data-powercord-react-instance-pointer="${pointer}"]`);
+  realNode.removeAttribute('data-powercord-react-instance-pointer');
+  const key = Object.keys(realNode).find(key => key.startsWith('__reactInternalInstance') || key.startsWith('__reactFiber'));
+  this.__reactInternalInstance$ = realNode[key];
+  this.__reactFiber$ = realNode[key];
+
+  return realNode[key];
+}
+
+function wrapElement (node) {
+  if (node && !node.__reactInternalInstance$) {
+    node.__reactInternalInstance$ = null;
+    node.__reactFiber$ = null;
+    Object.defineProperty(node, '__reactInternalInstance$', {
+      get: fetchInternal,
+      configurable: true
+    });
+    Object.defineProperty(node, '__reactFiber$', {
+      get: fetchInternal,
+      configurable: true
+    });
+  }
+}
+
+document.querySelector = (q) => {
+  const node = realQuerySelector(q);
+  wrapElement(node);
+  return node;
+};
+
+document.querySelectorAll = (q) => {
+  const nodes = Array.from(realQuerySelectorAll(q));
+  nodes.forEach((node) => wrapElement(node));
+  return nodes;
+};
+
+// --
+// I am not responsible for the rapid decease in the amount of alive brain previous code may have caused
+// --
 
 console.log('[Powercord] Loading Powercord');
 
@@ -59,8 +179,8 @@ if (debugLogs) {
       error: 'ERROR'
     };
     for (const key of Object.keys(levels)) {
-      const ogFunction = console[key].bind(console);
-      console[key] = (...args) => {
+      const ogFunction = webFrame.top.context.console[key].bind(console);
+      webFrame.top.context.console[key] = (...args) => {
         const cleaned = [];
         for (let i = 0; i < args.length; i++) {
           const part = args[i];
@@ -76,7 +196,7 @@ if (debugLogs) {
           }
         }
         write(fd, `[${getDate()}] [CONSOLE] [${levels[key]}] ${cleaned.join(' ')}\n`, 'utf8', () => void 0);
-        ogFunction.call(console, ...args);
+        ogFunction.call(webFrame.top.context.console, ...args);
       };
     }
 
