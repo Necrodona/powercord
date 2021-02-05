@@ -28,8 +28,33 @@ class BetterMutationObserver extends MutationObserver {
   }
 }
 
+const genericProxyWrapper = {
+  get (target, prop) {
+    return target[prop];
+  },
+  set (target, prop, value) {
+    if (typeof value === 'function') {
+      target[prop] = (...args) => value(...args);
+    } else {
+      target[prop] = value;
+    }
+  }
+};
+
+class BetterXHR extends XMLHttpRequest {
+  constructor () {
+    // eslint-disable-next-line constructor-super
+    return new Proxy(super(), genericProxyWrapper);
+  }
+
+  get upload () {
+    return new Proxy(super.upload, genericProxyWrapper);
+  }
+}
+
 window.ResizeObserver = BetterResizeObserver;
 window.MutationObserver = BetterMutationObserver;
+window.XMLHttpRequest = BetterXHR;
 
 function rebindAllEventTargets () {
   function rebindEventTarget (target) {
@@ -66,6 +91,7 @@ function rebindAllEventTargets () {
   rebindEventTarget(window);
   rebindEventTarget(document);
   rebindEventTarget(Element.prototype);
+  rebindEventTarget(XMLHttpRequestEventTarget.prototype);
 }
 
 rebindAllEventTargets();
@@ -100,7 +126,7 @@ function fetchRealElement (element) {
   element.dataset.powercordReactInstancePointer = ++pointer;
   const realNode = webFrame.top.context.document.querySelector(`[data-powercord-react-instance-pointer="${pointer}"]`);
   realNode.removeAttribute('data-powercord-react-instance-pointer');
-  return realNode
+  return realNode;
 }
 
 function fetchInternal () {
@@ -149,7 +175,7 @@ const getFunctions = [
   [ 'getElementsByName', true ],
   [ 'getElementsByTagName', true ],
   [ 'getElementsByTagNameNS', true ]
-]
+];
 
 for (const [ getMethod, isCollection ] of getFunctions) {
   const realGetter = document[getMethod].bind(document);
@@ -158,13 +184,13 @@ for (const [ getMethod, isCollection ] of getFunctions) {
       const nodes = Array.from(realGetter(...args));
       nodes.forEach((node) => wrapElement(node));
       return nodes;
-    }
+    };
   } else {
     document[getMethod] = (...args) => {
       const node = realGetter(...args);
       wrapElement(node);
       return node;
-    }
+    };
   }
 }
 

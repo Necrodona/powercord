@@ -11,7 +11,7 @@ const { findInTree, findInReactTree, getOwnerInstance, waitFor } = require('powe
 async function injectRouter () {
   const { container } = await getModule([ 'container', 'downloadProgressCircle' ]);
   const RouteRenderer = getOwnerInstance(await waitFor(`.${container.split(' ')[0]}`));
-  inject('pc-router-routes', RouteRenderer.__proto__, 'render', (_, res) => {
+  inject('pc-router-routes', RouteRenderer.props.children, 'type', (_, res) => {
     const { children: routes } = findInReactTree(res, m => Array.isArray(m.children) && m.children.length > 5);
     routes.push(
       ...powercord.api.router.routes.map(route => ({
@@ -44,22 +44,19 @@ async function injectViews () {
 async function injectSidebar () {
   const { panels } = await getModule([ 'panels' ]);
   const instance = getOwnerInstance(await waitFor(`.${panels}`));
-  inject('pc-router-sidebar', (instance._reactInternals || instance._reactInternalFiber).type.prototype, 'render', (_, res) => {
-    const renderer = res.props.children;
-    res.props.children = (props) => {
-      const rendered = renderer(props);
-      const className = rendered && rendered.props && rendered.props.children && rendered.props.children.props && rendered.props.children.props.className;
-      if (className && className.startsWith('sidebar-') && rendered.props.value.location.pathname.startsWith('/_powercord')) {
-        const rawPath = rendered.props.value.location.pathname.substring(11);
-        const route = powercord.api.router.routes.find(rte => rawPath.startsWith(rte.path));
-        if (route && route.sidebar) {
-          rendered.props.children.props.children[0] = React.createElement(route.sidebar);
-        } else {
-          rendered.props.children = null;
-        }
+  inject('pc-router-sidebar', instance.props.children, 'type', (_, res) => {
+    const content = findInReactTree(res, n => n.props?.className?.startsWith('content-'));
+    const className = content?.props?.children[0]?.props?.className;
+    if (className && className.startsWith('sidebar-') && window.location.pathname.startsWith('/_powercord')) {
+      const rawPath = window.location.pathname.substring(11);
+      const route = powercord.api.router.routes.find(rte => rawPath.startsWith(rte.path));
+      if (route && route.sidebar) {
+        content.props.children[0].props.children[0] = React.createElement(route.sidebar);
+      } else {
+        content.props.children[0] = null;
       }
-      return rendered;
-    };
+    }
+
     return res;
   });
 }
