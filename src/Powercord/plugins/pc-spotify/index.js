@@ -1,5 +1,5 @@
 const { Plugin } = require('powercord/entities');
-const { React, getModule, spotify } = require('powercord/webpack');
+const { React, getModule, spotify, spotifySocket } = require('powercord/webpack');
 const { inject, uninject } = require('powercord/injector');
 const { waitFor, getOwnerInstance, findInTree, sleep } = require('powercord/util');
 const playerStoreActions = require('./playerStore/actions');
@@ -15,12 +15,6 @@ const Settings = require('./components/Settings');
 const Modal = require('./components/Modal');
 
 class Spotify extends Plugin {
-  constructor () {
-    super();
-
-    this._handleSpotifyMessage = this._handleSpotifyMessage.bind(this);
-  }
-
   get color () {
     return '#1ed860';
   }
@@ -38,17 +32,19 @@ class Spotify extends Plugin {
   }
 
   startPlugin () {
-    return; // Please shut the f up
-
-    /* eslint-disable */
+    powercord.api.i18n.loadAllStrings(i18n);
     this.loadStylesheet('style.scss');
+    this._injectSocket();
     this._injectModal();
     this._patchAutoPause();
     spotify.fetchIsSpotifyProtocolRegistered();
-    powercord.on('webSocketMessage:dealer.spotify.com', this._handleSpotifyMessage);
-    SpotifyAPI.getPlayer().then(player => this._handlePlayerState(player));
-    powercord.api.i18n.loadAllStrings(i18n);
-    playerStoreActions.fetchDevices();
+
+    SpotifyAPI.getPlayer()
+      .then((player) => this._handlePlayerState(player))
+      .catch((e) => this.error('Failed to get player', e));
+
+    playerStoreActions.fetchDevices()
+      .catch((e) => this.error('Failed to fetch devices', e));
 
     powercord.api.settings.registerSettings('pc-spotify', {
       category: this.entityID,
@@ -64,20 +60,25 @@ class Spotify extends Plugin {
   }
 
   pluginWillUnload () {
-    return; // Please shut the f up
-
-    /* eslint-disable */
+    uninject('pc-spotify-socket');
     uninject('pc-spotify-modal');
+    this._applySocketChanges();
     this._patchAutoPause(true);
-    powercord.off('webSocketMessage:dealer.spotify.com', this._handleSpotifyMessage);
     Object.values(commands).forEach(cmd => powercord.api.commands.unregisterCommand(cmd.command));
     powercord.api.settings.unregisterSettings('pc-spotify');
+    spotifySocket.getActiveSocketAndDevice()?.socket.socket.close();
     songsStoreActions.purgeSongs();
 
     const { container } = getModule([ 'container', 'usernameContainer' ], false);
     const accountContainer = document.querySelector(`section > .${container}`);
     const instance = getOwnerInstance(accountContainer);
     instance.forceUpdate();
+  }
+
+  async _injectSocket () {
+    const { SpotifySocket } = await getModule([ 'SpotifySocket' ]);
+    inject('pc-spotify-socket', SpotifySocket.prototype, 'handleMessage', ([ e ]) => this._handleSpotifyMessage(e));
+    spotifySocket.getActiveSocketAndDevice()?.socket.socket.close();
   }
 
   async _injectModal () {
