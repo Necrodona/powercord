@@ -9,7 +9,7 @@ require('./env_check')(); // Perform checks
 require('../polyfills'); // And then do stuff
 
 const { join } = require('path');
-const { writeFile } = require('fs').promises;
+const { readFile, writeFile } = require('fs').promises;
 const { BasicMessages } = require('./log');
 const main = require('./main.js');
 
