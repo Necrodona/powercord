@@ -56,32 +56,6 @@ module.exports = class Notices extends Plugin {
     forceUpdateElement(`.${app}`);
   }
 
-  _welcomeNewUser () {
-    powercord.api.notices.sendAnnouncement('pc-first-welcome', {
-      color: 'green',
-      message: 'Welcome! Powercord has been successfully injected into your Discord client. Feel free to join our Discord server for announcements, support and more!',
-      button: {
-        text: 'Join Server',
-        onClick: async () => {
-          const store = await getModule([ 'getGuilds' ]);
-          if (store.getGuilds()[GUILD_ID]) {
-            const channel = await getModule([ 'getLastSelectedChannelId' ]);
-            const router = await getModule([ 'transitionTo' ]);
-            // eslint-disable-next-line new-cap
-            router.transitionTo(Routes.CHANNEL(GUILD_ID, channel.getChannelId(GUILD_ID)));
-          } else {
-            const windowManager = await getModule([ 'flashFrame', 'minimize' ]);
-            const { INVITE_BROWSER: { handler: popInvite } } = await getModule([ 'INVITE_BROWSER' ]);
-            const oldMinimize = windowManager.minimize;
-            windowManager.minimize = () => void 0;
-            popInvite({ args: { code: DISCORD_INVITE } });
-            windowManager.minimize = oldMinimize;
-          }
-        }
-      }
-    });
-  }
-
   _unsupportedBuild () {
     powercord.api.notices.sendAnnouncement('pc-unsupported-build', {
       color: 'orange',
