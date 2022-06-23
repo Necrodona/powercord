@@ -1,9 +1,3 @@
-/**
- * Copyright (c) 2018-2020 aetheryx & Bowser65
- * All Rights Reserved. Licensed under the Porkord License
- * https://powercord.dev/porkord-license
- */
-
 const Module = require('module');
 const { join, dirname } = require('path');
 const { existsSync, unlinkSync } = require('fs');
@@ -79,12 +73,15 @@ electron.app.once('ready', () => {
 
   // @todo: make this be not shit
   electron.session.defaultSession.webRequest.onBeforeRequest((details, done) => {
-    if (details.url.startsWith('https://canary.discordapp.com/_powercord')) {
+    const domainMatch = details.url.match(/^https:\/\/(?:(?:canary|ptb)\.)?discord(?:app)?\.com/);
+    if (domainMatch) {
+      const domain = domainMatch[0];
+      if (details.url.startsWith(`${domain}/_powercord`)) {
       // It should get restored to _powercord url later
-      done({ redirectURL: 'https://canary.discordapp.com/app' });
-    } else if (details.url.startsWith('https://canary.discord.com/_powercord')) {
-      // It should get restored to _powercord url later
-      done({ redirectURL: 'https://canary.discord.com/app' });
+        done({ redirectURL: `${domain}/app` });
+      } else {
+        done({});
+      }
     } else {
       done({});
     }

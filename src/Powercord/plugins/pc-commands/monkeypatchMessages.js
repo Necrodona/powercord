@@ -1,4 +1,4 @@
-const { getModule, channels: { getChannelId } } = require('powercord/webpack');
+const { getModule, channels } = require('powercord/webpack');
 
 module.exports = async function monkeypatchMessages () {
   const messages = await getModule([ 'sendMessage', 'editMessage' ]);
@@ -39,7 +39,10 @@ module.exports = async function monkeypatchMessages () {
     if (result.send) {
       message.content = result.result;
     } else {
-      const receivedMessage = createBotMessage(getChannelId(), '');
+      const receivedMessage = createBotMessage({
+        channelId: channels.getChannelId(),
+        content: ''
+      });
 
       if (powercord.settings.get('replaceClyde', true)) {
         // noinspection JSPrimitiveTypeWrapperUsage
@@ -61,7 +64,7 @@ module.exports = async function monkeypatchMessages () {
       }
 
       // noinspection CommaExpressionJS
-      return (messages.receiveMessage(receivedMessage.channel_id, receivedMessage), delete BOT_AVATARS[result.avatar_url]);
+      return (messages.receiveMessage(channels.getChannelId(), receivedMessage), delete BOT_AVATARS[result.avatar_url]);
     }
 
     return sendMessage(id, message, ...params).catch(() => void 0);

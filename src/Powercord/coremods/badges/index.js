@@ -1,9 +1,3 @@
-/**
- * Copyright (c) 2018-2020 aetheryx & Bowser65
- * All Rights Reserved. Licensed under the Porkord License
- * https://powercord.dev/porkord-license
- */
-
 const { join } = require('path');
 const { React, getModule, getModuleByDisplayName } = require('powercord/webpack');
 const { forceUpdateElement, getOwnerInstance } = require('powercord/util');
@@ -87,10 +81,11 @@ async function injectGuilds () {
 
   inject('pc-badges-guilds-header', GuildHeader.default, 'type', ([ props ], res) => {
     if (cache._guilds[props.guild.id]) {
-      res.props.children[0].props.children[0].props.children.unshift(
+      res.props.children[0].props.children[0].props.children[0].props.children.unshift(
         React.createElement(Badges.Custom, {
           ...cache._guilds[props.guild.id],
-          tooltipPosition: 'bottom'
+          tooltipPosition: 'bottom',
+          gap: false
         })
       );
     }

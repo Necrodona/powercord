@@ -1,9 +1,3 @@
-/**
- * Copyright (c) 2018-2020 aetheryx & Bowser65
- * All Rights Reserved. Licensed under the Porkord License
- * https://powercord.dev/porkord-license
- */
-
 const { join } = require('path');
 const { BrowserWindow } = require('electron');
 
@@ -66,10 +60,10 @@ class PatchedBrowserWindow extends BrowserWindow {
   }
 
   static loadUrl (ogLoadUrl, url, opts) {
-    console.log(url);
-    if (url.match(/^https:\/\/canary\.discord(app)?\.com\/_powercord\//)) {
+    const match = url.match(/^https:\/\/((?:canary|ptb)\.)?discord(app)?\.com\/_powercord\//);
+    if (match) {
       this.webContents._powercordOgUrl = url;
-      return ogLoadUrl('https://canary.discord.com/app', opts);
+      return ogLoadUrl(`https://${match[1] || ''}discord.com/app`, opts);
     }
     return ogLoadUrl(url, opts);
   }

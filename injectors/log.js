@@ -1,9 +1,3 @@
-/**
- * Copyright (c) 2018-2020 aetheryx & Bowser65
- * All Rights Reserved. Licensed under the Porkord License
- * https://powercord.dev/porkord-license
- */
-
 const AnsiEscapes = Object.freeze({
   RESET: '\x1b[0m',
   BOLD: '\x1b[1m',
@@ -19,7 +13,15 @@ const BasicMessages = Object.freeze({
   UNPLUG_SUCCESS: `${AnsiEscapes.BOLD}${AnsiEscapes.GREEN}Powercord has been successfully unplugged${AnsiEscapes.RESET}`
 });
 
+const PlatformNames = Object.freeze({
+  stable: 'Discord',
+  ptb: 'Discord PTB',
+  canary: 'Discord Canary',
+  dev: 'Discord Development'
+});
+
 module.exports = {
   AnsiEscapes,
-  BasicMessages
+  BasicMessages,
+  PlatformNames
 };

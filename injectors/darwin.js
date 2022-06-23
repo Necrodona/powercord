@@ -1,7 +1,8 @@
-/**
- * Copyright (c) 2018-2020 aetheryx & Bowser65
- * All Rights Reserved. Licensed under the Porkord License
- * https://powercord.dev/porkord-license
- */
+const PATHS = {
+  stable: '/Applications/Discord.app/Contents/Resources/app',
+  ptb: '/Applications/Discord PTB.app/Contents/Resources/app',
+  canary: '/Applications/Discord Canary.app/Contents/Resources/app',
+  dev: '/Applications/Discord Development.app/Contents/Resources/app'
+};
 
-exports.getAppDir = async () => '/Applications/Discord Development.app/Contents/Resources/app';
+exports.getAppDir = async (platform) => PATHS[platform];

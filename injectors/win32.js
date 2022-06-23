@@ -1,14 +1,15 @@
-/**
- * Copyright (c) 2018-2020 aetheryx & Bowser65
- * All Rights Reserved. Licensed under the Porkord License
- * https://powercord.dev/porkord-license
- */
-
 const { readdir } = require('fs').promises;
 const { join } = require('path');
 
-exports.getAppDir = async () => {
-  const discordPath = join(process.env.LOCALAPPDATA, 'DiscordDevelopment');
+const PATHS = {
+  stable: 'Discord',
+  ptb: 'DiscordPTB',
+  canary: 'DiscordCanary',
+  dev: 'DiscordDevelopment'
+};
+
+exports.getAppDir = async (platform) => {
+  const discordPath = join(process.env.LOCALAPPDATA, PATHS[platform]);
   const discordDirectory = await readdir(discordPath);
 
   const currentBuild = discordDirectory
