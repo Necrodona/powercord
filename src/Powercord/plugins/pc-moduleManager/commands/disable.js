@@ -1,51 +1,62 @@
+const { CORE_PLUGINS } = require('powercord/constants');
+const { resp } = require('../util/resp');
+
 module.exports = {
   command: 'disable',
-  description: 'Allows you to disable a selected plugin from the given list.',
-  usage: '{c} [ plugin ID ]',
-  executor (args) {
-    let result;
+  description: 'Disable a plugin/theme',
+  usage: '{c} [ plugin/theme ID ]',
+  executor([ id ]) {
+    const isPlugin = powercord.pluginManager.plugins.has(id);
+    const isTheme = powercord.styleManager.themes.has(id);
 
-    if (powercord.pluginManager.plugins.has(args[0])) {
-      if (args[0] === 'pc-commands') {
-        result = `->> ERROR: You cannot unload this plugin as it depends on delivering these commands!
-            (Tried to unload ${args[0]})`;
-      } else if (!powercord.pluginManager.isEnabled(args[0])) {
-        result = `->> ERROR: Tried to unload a non-loaded plugin!
-            (${args[0]})`;
-      } else {
-        powercord.pluginManager.disable(args[0]);
-        result = `+>> SUCCESS: Plugin unloaded!
-            (${args[0]})`;
-      }
-    } else {
-      result = `->> ERROR: Tried to disable a non-installed plugin!
-          (${args[0]})`;
+    if (!isPlugin && !isTheme) { // No match
+      return resp(false, `Could not find plugin or theme matching "${id}".`)
+    } else if (isPlugin && isTheme) { // Duplicate name
+      return resp(false, `"${id}" is in use by both a plugin and theme. You will have to disable it from settings.`);
+    } else if (isPlugin && CORE_PLUGINS.includes(id)) { // Core internal plugin
+      return resp(false, `"${id}" provides core functionality and cannot be disabled.`);
     }
 
-    return {
-      send: false,
-      result: `\`\`\`diff\n${result}\`\`\``
-    };
+    const manager = isPlugin ? powercord.pluginManager : powercord.styleManager;
+    if (!manager.isEnabled(id)) {
+      return resp(false, `"${id}" is already disabled.`)
+    }
+
+    manager.disable(id);
+    return resp(true, `${isPlugin ? 'Plugin' : 'Theme'} "${id}" disabled!`);
   },
 
-  autocomplete (args) {
-    const plugins = powercord.pluginManager.getPlugins()
-      .sort((a, b) => a - b)
-      .map(plugin => powercord.pluginManager.plugins.get(plugin));
+  autocomplete(args) {
+    const plugins = Array.from(powercord.pluginManager.plugins.values())
+      .filter(plugin =>
+        !CORE_PLUGINS.includes(plugin) &&
+        plugin.entityID !== 'pc-commands' &&
+        plugin.entityID.toLowerCase().includes(args[0]?.toLowerCase()) &&
+        powercord.pluginManager.isEnabled(plugin.entityID)
+      );
+
+    const themes = Array.from(powercord.styleManager.themes.values())
+      .filter(theme =>
+        theme.entityID.toLowerCase().includes(args[0]?.toLowerCase()) &&
+        powercord.styleManager.isEnabled(theme.entityID)
+      );
 
     if (args.length > 1) {
       return false;
     }
 
     return {
-      commands: plugins
-        .filter(plugin => plugin.entityID !== 'pc-commands' &&
-          plugin.entityID.toLowerCase().includes(args[0] && args[0].toLowerCase()))
-        .map(plugin => ({
+      header: 'powercord entities list',
+      commands: [
+        ...plugins.map(plugin => ({
           command: plugin.entityID,
-          description: plugin.manifest.description
+          description: `Plugin - ${plugin.manifest.description}`
         })),
-      header: 'powercord plugin list'
+        ...themes.map(theme => ({
+          command: theme.entityID,
+          description: `Theme - ${theme.manifest.description}`
+        }))
+      ],
     };
   }
 };

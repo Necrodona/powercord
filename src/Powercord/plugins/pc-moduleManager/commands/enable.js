@@ -1,46 +1,57 @@
+const { resp } = require('../util/resp');
+
 module.exports = {
   command: 'enable',
-  description: 'Allows you to re-/enable a selected plugin from the given list.',
-  usage: '{c} [ plugin ID ]',
-  executor (args) {
-    let result;
+  description: 'Enable a plugin/theme',
+  usage: '{c} [ plugin/theme ID ]',
+  executor([ id ]) {
+    const isPlugin = powercord.pluginManager.plugins.has(id);
+    const isTheme = powercord.styleManager.themes.has(id);
 
-    if (powercord.pluginManager.plugins.has(args[0])) {
-      if (powercord.pluginManager.isEnabled(args[0])) {
-        result = `->> ERROR: Tried to load an already loaded plugin!
-            (${args[0]})`;
-      } else {
-        powercord.pluginManager.enable(args[0]);
-        result = `+>> SUCCESS: Plugin loaded!
-            (${args[0]})`;
-      }
-    } else {
-      result = `->> ERROR: Tried to enable a non-installed plugin!
-          (${args[0]})`;
+    if (!isPlugin && !isTheme) { // No match
+      return resp(false, `Could not find plugin or theme matching "${id}".`)
+    } else if (isPlugin && isTheme) { // Duplicate name
+      return resp(false, `"${id}" is in use by both a plugin and theme. You will have to disable it from settings.`);
     }
 
-    return {
-      send: false,
-      result: `\`\`\`diff\n${result}\`\`\``
-    };
-  },
-  autocomplete (args) {
-    const plugins = powercord.pluginManager.getPlugins()
-      .sort((a, b) => a - b)
-      .map(plugin => powercord.pluginManager.plugins.get(plugin));
+    const manager = isPlugin ? powercord.pluginManager : powercord.styleManager;
+    if (manager.isEnabled(id)) {
+      return resp(false, `"${id}" is already enabled.`);
+    }
 
+    manager.enable(id);
+    return resp(true, `${isPlugin ? 'Plugin' : 'Theme'} "${id}" enabled!`);
+  },
+
+  autocomplete(args) {
     if (args.length > 1) {
       return false;
     }
 
+    const plugins = Array.from(powercord.pluginManager.plugins.values())
+      .filter(plugin =>
+        plugin.entityID.toLowerCase().includes(args[0]?.toLowerCase()) &&
+        !powercord.pluginManager.isEnabled(plugin.entityID)
+      );
+
+    const themes = Array.from(powercord.styleManager.themes.values())
+      .filter(theme =>
+        theme.entityID.toLowerCase().includes(args[0]?.toLowerCase()) &&
+        !powercord.styleManager.isEnabled(theme.entityID)
+      );
+
     return {
-      commands: plugins
-        .filter(plugin => plugin.entityID.toLowerCase().includes(args[0] && args[0].toLowerCase()))
-        .map(plugin => ({
+      header: 'powercord entities list',
+      commands: [
+        ...plugins.map(plugin => ({
           command: plugin.entityID,
-          description: plugin.manifest.description
+          description: `Plugin - ${plugin.manifest.description}`
         })),
-      header: 'powercord plugin list'
+        ...themes.map(theme => ({
+          command: theme.entityID,
+          description: `Theme - ${theme.manifest.description}`
+        }))
+      ],
     };
   }
 };

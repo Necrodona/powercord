@@ -1,6 +1,7 @@
 const { React, i18n: { Messages } } = require('powercord/webpack');
 const { open: openModal, close: closeModal } = require('powercord/modal');
 const { Confirm } = require('powercord/components/modal');
+const { CORE_PLUGINS } = require('powercord/constants');
 
 const InstalledProduct = require('../parts/InstalledProduct');
 const Base = require('./Base');
@@ -21,8 +22,7 @@ class Plugins extends Base {
   }
 
   getItems () {
-    const dont = [ 'pc-commands', 'pc-connections', 'pc-docs', 'pc-i18n', 'pc-moduleManager', 'pc-notices', 'pc-rpc', 'pc-sdk', 'pc-settings', 'pc-updater' ];
-    const plugins = Array.from(powercord.pluginManager.plugins.values()).filter((p) => !dont.includes(p.entityID));
+    const plugins = Array.from(powercord.pluginManager.plugins.values()).filter((p) => !CORE_PLUGINS.includes(p.entityID));
     return this._sortItems(plugins);
   }
 
@@ -92,16 +92,20 @@ class Plugins extends Base {
         onCancel={closeModal}
         onConfirm={async () => {
           for (const plugin of plugins) {
-            await powercord.pluginManager.uninstall(plugin);
+            try {
+              await powercord.pluginManager.uninstall(plugin);
+            } catch (err) {
+              console.error(err);
+            }
           }
-          this.forceUpdate();
           closeModal();
+          this.forceUpdate();
         }}
       >
         <div className='powercord-products-modal'>
           <span>{Messages.POWERCORD_PLUGINS_UNINSTALL_SURE.format({ pluginCount: plugins.length })}</span>
           <ul>
-            {plugins.map(p => <li key={p.id}>{powercord.pluginManager.get(p).manifest.name}</li>)}
+            {plugins.map(p => <li key={p.id}>{powercord.pluginManager.get(p)?.manifest?.name}</li>)}
           </ul>
         </div>
       </Confirm>
